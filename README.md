@@ -4,7 +4,7 @@
 A Simple Proxy By Golang
 
 一个快速、轻量级的Proxy
-使用Golang编写的一个简单的Proxy,采用客户端 -> 服务器结构,加密使用轻便的位运算加密,速度还不错,这是我写的第一个Golang程序,如有错漏欢迎提Iusse支持,也欢迎提交PR
+使用Golang编写的一个简单的Proxy,采用客户端 -> 服务器结构,加密使用轻便的位运算加密,速度还不错,这是我写的第一个Golang程序,如有错漏迎提Iusse指出,也欢迎提交PR
 
 ## 环境
 
