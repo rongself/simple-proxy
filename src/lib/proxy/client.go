@@ -4,9 +4,10 @@ import (
 	"log"
 	"net"
 
-	"../crypt"
-	"../http"
-	"../tool"
+	"lib/crypt"
+
+	"lib/http"
+	"lib/tool"
 )
 
 //Client proxy client

@@ -1,7 +1,7 @@
 package config
 
 import (
-	"../lib/tool"
+	"lib/tool"
 )
 
 // ServerConfig 服务器端配置格式

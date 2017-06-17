@@ -5,9 +5,9 @@ import (
 	"net"
 	"time"
 
-	"../crypt"
-	"../http"
-	"../tool"
+	"lib/crypt"
+	"lib/http"
+	"lib/tool"
 )
 
 //Server proxy server

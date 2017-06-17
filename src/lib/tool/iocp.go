@@ -3,7 +3,7 @@ package tool
 import (
 	"io"
 
-	"../crypt"
+	"lib/crypt"
 )
 
 // Copy copy
