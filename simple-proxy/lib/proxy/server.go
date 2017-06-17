@@ -21,17 +21,17 @@ func (server Server) Start() {
 
 	l, err := net.Listen("tcp", server.Host.String())
 	if err != nil {
-		log.Panic("端口监听失败", err)
+		log.Panic("服务器端口监听失败", err)
 	}
 
-	log.Println("开始监听端口:", server.Host.String())
+	log.Println("服务器开始监听端口:", server.Host.String())
 
 	for {
 		client, err := l.Accept()
 		if err != nil {
-			log.Panic("接受连接失败", err)
+			log.Panic("接受客户端连接失败", err)
 		}
-		log.Println("客户端连接成功:", client.RemoteAddr().String())
+		log.Println("接受客户端连接成功:", client.RemoteAddr().String())
 		go server.HandleRequest(client)
 	}
 }
@@ -45,7 +45,7 @@ func (server Server) HandleRequest(client net.Conn) {
 		}
 	}()
 	crypter := crypt.Bitcrypt{}
-	var buffer [2048]byte
+	var buffer = make([]byte, 2048)
 	len, err := client.Read(buffer[:])
 	if err != nil {
 		log.Panic("请求数据读取流错误: ", err)

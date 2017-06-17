@@ -1,10 +1,8 @@
 package crypt
 
-// Secret 密钥
-var Secret = []byte{0xB2, 0x09, 0xBB, 0x55, 0x93, 0x6D, 0x44, 0x47}
-
 // Bitcrypt 位运算加密
 type Bitcrypt struct {
+	Secret byte
 }
 
 // Crypter 加密器
@@ -16,7 +14,7 @@ type Crypter interface {
 // Encode 加密
 func (crypter Bitcrypt) Encode(bt []byte) []byte {
 	for index, value := range bt {
-		bt[index] = value ^ Secret[0]
+		bt[index] = value ^ crypter.Secret
 	}
 	return bt
 }

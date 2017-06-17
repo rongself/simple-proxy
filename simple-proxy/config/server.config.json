@@ -1,0 +1,7 @@
+{
+    "server":"0.0.0.0",
+    "server_port":8888,
+    "password":"barfoo!",
+    "method": "bitcrypt",
+    "timeout":60
+}

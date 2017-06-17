@@ -50,6 +50,7 @@ func (client Client) HandleRequest(brower net.Conn) {
 	if err != nil {
 		log.Panic("连接Proxy服务器失败: ", err)
 	}
+	log.Println("连接Proxy服务器成功:", client.ProxyHost.String())
 
 	go tool.Copy(brower, proxyServer, client.Crypter)
 	tool.Copy(proxyServer, brower, client.Crypter)
