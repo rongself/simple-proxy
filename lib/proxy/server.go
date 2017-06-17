@@ -19,11 +19,15 @@ type Server struct {
 // Start start proxy server
 func (server Server) Start() {
 
-	l, err := net.Listen("tcp", server.Host.String())
+	ip, err := net.ResolveTCPAddr("tcp", server.Host.String())
+	if err != nil {
+		log.Panic("IP解析失败: ", err)
+	}
+
+	l, err := net.ListenTCP("tcp", ip)
 	if err != nil {
 		log.Panic("服务器端口监听失败", err)
 	}
-
 	log.Println("服务器开始监听端口:", server.Host.String())
 
 	for {

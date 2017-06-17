@@ -3,7 +3,6 @@ package proxy
 import (
 	"log"
 	"net"
-	"time"
 
 	"../crypt"
 	"../http"
@@ -45,8 +44,11 @@ func (client Client) HandleRequest(brower net.Conn) {
 			log.Println(err)
 		}
 	}()
-
-	proxyServer, err := net.DialTimeout("tcp", client.ProxyHost.String(), time.Duration(60*time.Second))
+	ip, err := net.ResolveTCPAddr("tcp", client.ProxyHost.String())
+	if err != nil {
+		log.Panic("IP解析失败: ", err)
+	}
+	proxyServer, err := net.DialTCP("tcp", nil, ip)
 	if err != nil {
 		log.Panic("连接Proxy服务器失败: ", err)
 	}
