@@ -1,6 +1,6 @@
 {
     "server":"gfw.youfxxking.win",
-    "server_port":8388,
+    "server_port":8888,
     "local":"0.0.0.0",
     "local_port":1070,
     "password":"barfoo!",
