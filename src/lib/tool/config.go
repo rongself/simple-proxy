@@ -1,8 +1,4 @@
-package config
-
-import (
-	"lib/tool"
-)
+package tool
 
 // ServerConfig 服务器端配置格式
 var ServerConfig = map[string]interface{}{
@@ -26,6 +22,6 @@ var ClientConfig = map[string]interface{}{
 }
 
 func init() {
-	tool.NewJSONReader("./config/server.config.json", &ServerConfig).Read()
-	tool.NewJSONReader("./config/client.config.json", &ClientConfig).Read()
+	NewJSONReader("./config/server.config.json", &ServerConfig).Read()
+	NewJSONReader("./config/client.config.json", &ClientConfig).Read()
 }

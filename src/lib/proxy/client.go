@@ -20,7 +20,7 @@ type Client struct {
 // Start start proxy client
 func (client Client) Start() {
 
-	l, err := net.Listen("tcp", client.Listen.String())
+	localServer, err := net.Listen("tcp", client.Listen.String())
 	if err != nil {
 		log.Panic("端口监听失败", err)
 	}
@@ -28,7 +28,7 @@ func (client Client) Start() {
 	log.Println("客户端开始监听端口:", client.Listen.String())
 
 	for {
-		brower, err := l.Accept()
+		brower, err := localServer.Accept()
 		if err != nil {
 			log.Panic("接受连接失败", err)
 		}

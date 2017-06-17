@@ -1,8 +1,8 @@
 {
-    "server":"gfw.youfxxking.win",
+    "server":"127.0.0.1",
     "server_port":8888,
     "local":"0.0.0.0",
-    "local_port":1070,
+    "local_port":1090,
     "password":"barfoo!",
     "method": "bitcrypt",
     "timeout":60
