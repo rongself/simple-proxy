@@ -44,7 +44,7 @@ func (server Server) HandleRequest(client net.Conn) {
 			log.Println(err)
 		}
 	}()
-	crypter := crypt.Bitcrypt{}
+
 	var buffer = make([]byte, 2048)
 	len, err := client.Read(buffer[:])
 	if err != nil {
@@ -52,7 +52,7 @@ func (server Server) HandleRequest(client net.Conn) {
 	}
 
 	request := http.Request{}
-	err = request.Parse(crypter.Decode(buffer[:]))
+	err = request.Parse(server.Crypter.Decode(buffer[:]))
 	if err != nil {
 		log.Panic("请求解析失败: ", err)
 	}
@@ -65,7 +65,7 @@ func (server Server) HandleRequest(client net.Conn) {
 	log.Println("连接Web服务器成功:", request.String())
 
 	if request.Method == http.CONNECT {
-		client.Write(crypter.Encode([]byte("HTTP/1.1 200 Connection established\r\n\r\n")))
+		client.Write(server.Crypter.Encode([]byte("HTTP/1.1 200 Connection established\r\n\r\n")))
 	} else {
 		webServer.Write(buffer[:len])
 	}
