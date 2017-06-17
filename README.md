@@ -38,7 +38,7 @@ cd simple-proxy && ./install.sh
 
 编辑配置文件 `./bin/server.config.json` 
 
-```json
+```
 
 {
     "server":"0.0.0.0",     //服务器监听IP,一般设为 0.0.0.0
@@ -52,9 +52,9 @@ cd simple-proxy && ./install.sh
 
 ### 客户端
 
-编辑配置文件 `./bin/server.config.json` 
+编辑配置文件 `./bin/client.config.json` 
 
-```json
+```
 
 {
     "server":"yourserver.com",      //服务器监听IP,一般设为 0.0.0.0
