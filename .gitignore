@@ -3,3 +3,4 @@ pkg
 .vscode
 src/config/client.config.json
 src/config/server.config.json
+./config/*

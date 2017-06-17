@@ -68,17 +68,17 @@ cd simple-proxy && ./install.sh
 
 ### 运行
 
-运行二进制文件,`必须`在`./bin`文件夹中运行,否则无法读取到配置文件
+运行可执行文件
 
 1. 在外网服务器运行服务器端:
 
 ```bash
-cd ./bin && ./server
+ ./bin/server
 ```
 2. 在本地运行客户端
 
 ```bash
-cd ./bin && ./client
+ ./bin/client
 ```
 
 ## 使用
