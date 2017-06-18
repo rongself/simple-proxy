@@ -1,51 +1,24 @@
-package http
+package parser
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
+	"lib/http"
 	"log"
 	"net/url"
 	"regexp"
 	"strings"
 )
 
-// Host host
-type Host struct {
-	Domain string
-	Port   string
-}
-
-func (host Host) String() string {
-	return fmt.Sprintf("%s:%s", host.Domain, host.Port)
-}
-
-// Http Methods
-const (
-	GET     = "GET"
-	POST    = "POST"
-	DELETE  = "DELETE"
-	PUT     = "PUT"
-	CONNECT = "CONNECT"
-	TRACE   = "TRACE"
-	PATCH   = "PATCH"
-	HEAD    = "HEAD"
-)
-
-// Request http request
-type Request struct {
-	Host     Host
-	Method   string
-	Protocol string
-}
-
-func (request Request) String() string {
-	return fmt.Sprintf("%v %s %s", request.Host, request.Method, request.Protocol)
+// HTTPParser http解析器
+type HTTPParser struct {
 }
 
 // Parse http string
-func (request *Request) Parse(httpSteam []byte) error {
+func (parser HTTPParser) Parse(httpSteam []byte) (http.Request, error) {
 
+	var request = http.Request{}
 	var method, host, protocol string
 	firstLine := string(httpSteam[:bytes.IndexByte(httpSteam[:], '\n')])
 
@@ -53,7 +26,7 @@ func (request *Request) Parse(httpSteam []byte) error {
 
 	//丢弃不规范的请求
 	if len(reg.FindStringIndex(firstLine)) <= 0 {
-		return errors.New("请求不规范: " + firstLine)
+		return request, errors.New("请求不规范: " + firstLine)
 	}
 
 	fmt.Sscanf(firstLine, "%s%s%s", &method, &host, &protocol)
@@ -77,10 +50,10 @@ func (request *Request) Parse(httpSteam []byte) error {
 	if port == "" {
 		port = "80"
 	}
+
 	request.Host.Domain = domain
 	request.Host.Port = port
 	request.Method = method
 	request.Protocol = protocol
-	// fmt.Println(request)
-	return nil
+	return request, nil
 }

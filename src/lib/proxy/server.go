@@ -7,6 +7,7 @@ import (
 
 	"lib/crypt"
 	"lib/http"
+	"lib/parser"
 	"lib/tool"
 )
 
@@ -14,6 +15,7 @@ import (
 type Server struct {
 	Host    http.Host
 	Crypter crypt.Crypter
+	Parser  parser.Parser
 }
 
 // Start start proxy server
@@ -48,15 +50,14 @@ func (server Server) HandleRequest(client net.Conn) {
 			log.Println(err)
 		}
 	}()
-
+	// @TOFIX 如果第一行超过了buffer长度,那就没有换行符,也就截取不到第一行,nginx 默认最大header行长度为8192byte
 	var buffer = make([]byte, 2048)
-	len, err := client.Read(buffer[:])
+	len, err := client.Read(buffer)
 	if err != nil {
 		log.Panic("请求数据读取流错误: ", err)
 	}
 
-	request := http.Request{}
-	err = request.Parse(server.Crypter.Decode(buffer[:]))
+	request, err := server.Parser.Parse(server.Crypter.Decode(buffer))
 	if err != nil {
 		log.Panic("请求解析失败: ", err)
 	}
@@ -69,8 +70,10 @@ func (server Server) HandleRequest(client net.Conn) {
 	log.Println("连接Web服务器成功:", request.String())
 
 	if request.Method == http.CONNECT {
+		// 当请求是HTTPS请求,浏览器会发送一个CONNECT请求告诉代理服务器请求的域名和端口
 		client.Write(server.Crypter.Encode([]byte("HTTP/1.1 200 Connection established\r\n\r\n")))
 	} else {
+		// 当请求是HTTP请求,直接传给web服务器(因为这是第一次Read读取的数据,不能漏了)
 		webServer.Write(buffer[:len])
 	}
 

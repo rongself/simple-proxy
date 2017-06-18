@@ -8,6 +8,7 @@ import (
 
 	"lib/http"
 	"lib/tool"
+	"time"
 )
 
 //Client proxy client
@@ -33,7 +34,12 @@ func (client Client) Start() {
 			log.Panic("接受连接失败", err)
 		}
 		log.Println("浏览器连接成功:", brower.RemoteAddr().String())
-		go client.HandleRequest(brower)
+
+		now := time.Now()
+		go func() {
+			client.HandleRequest(brower)
+			log.Println("请求处理完成,处理时间:", time.Since(now))
+		}()
 	}
 }
 
@@ -49,6 +55,7 @@ func (client Client) HandleRequest(brower net.Conn) {
 	if err != nil {
 		log.Panic("IP解析失败: ", err)
 	}
+	// 写在handle里,每一个浏览器请求建立一个TCP连接来传送
 	proxyServer, err := net.DialTCP("tcp", nil, ip)
 	if err != nil {
 		log.Panic("连接Proxy服务器失败: ", err)
