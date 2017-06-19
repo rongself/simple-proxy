@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"compress/flate"
 	"fmt"
 	"io"
 	"log"
@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	// b := make([]byte, 5)
+
 	host, _ := net.Listen("tcp", "127.0.0.1:8900")
 	for {
 		conn, err := host.Accept()
@@ -24,20 +24,16 @@ func main() {
 }
 
 func handle(conn net.Conn) {
-	for {
-
-		buffer := make([]byte, 5)
-		fmt.Println("等待发送数据")
-		n, err := conn.Read(buffer)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			fmt.Println(err)
+	buffer := make([]byte, 1024)
+	fmt.Println("等待发送数据")
+	c := flate.NewReader(conn)
+	n, err := conn.Read(buffer)
+	if err != nil {
+		if err == io.EOF {
+			fmt.Println("break:", err)
 		}
-		if bytes.Contains(buffer, []byte{'\r', '\n'}) {
-			fmt.Println("\\n find")
-		}
-		fmt.Println(buffer, "--", n, len(buffer), cap(buffer))
+		fmt.Println("错误", err)
 	}
+	// c.Close()
+	fmt.Println(string(buffer[:n]), buffer[:n], "--", n, len(buffer), cap(buffer))
 }

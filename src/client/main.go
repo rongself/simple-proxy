@@ -3,7 +3,8 @@ package main
 import (
 	"strconv"
 
-	"lib/crypt"
+	"lib/compressor"
+	"lib/crypter"
 	"lib/http"
 	"lib/proxy"
 	"lib/tool"
@@ -16,7 +17,8 @@ func main() {
 	local := tool.ClientConfig["local"].(string)
 	localPort := tool.ClientConfig["local_port"].(float64)
 
-	crypter := crypt.Bitcrypt{Secret: 0xB2}
+	compressor := compressor.FlateCompressor{}
+	crypter := crypter.Bitcrypter{Secret: 0xB2}
 
 	proxyHost := http.Host{
 		Domain: remote,
@@ -29,9 +31,10 @@ func main() {
 	}
 
 	client := proxy.Client{
-		ProxyHost: proxyHost,
-		Listen:    listen,
-		Crypter:   crypter,
+		ProxyHost:  proxyHost,
+		Listen:     listen,
+		Crypter:    crypter,
+		Compressor: compressor,
 	}
 
 	client.Start()

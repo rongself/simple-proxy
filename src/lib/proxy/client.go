@@ -1,11 +1,12 @@
 package proxy
 
 import (
+	"compress/flate"
 	"log"
 	"net"
 
-	"lib/crypt"
-
+	"lib/compressor"
+	"lib/crypter"
 	"lib/http"
 	"lib/tool"
 	"time"
@@ -13,9 +14,10 @@ import (
 
 //Client proxy client
 type Client struct {
-	ProxyHost http.Host
-	Listen    http.Host
-	Crypter   crypt.Crypter
+	ProxyHost  http.Host
+	Listen     http.Host
+	Crypter    crypter.Crypter
+	Compressor compressor.Compressor
 }
 
 // Start start proxy client
@@ -62,7 +64,16 @@ func (client Client) HandleRequest(brower net.Conn) {
 	}
 	log.Println("连接Proxy服务器成功:", client.ProxyHost.String())
 
-	go tool.Copy(brower, proxyServer, client.Crypter)
-	tool.Copy(proxyServer, brower, client.Crypter)
+	cr := client.Compressor.NewReader(proxyServer)
+	//代理过来的流量写回到浏览器
+	go tool.Copy(brower, cr, client.Crypter)
+
+	cw, err := client.Compressor.NewWriter(proxyServer, flate.DefaultCompression)
+	if err != nil {
+		log.Panic("初始化压缩器失败", err)
+	}
+	//浏览器过来的流量写入到代理服务器
+	tool.Copy(cw, brower, client.Crypter)
+	cw.Flush()
 	brower.Close()
 }
