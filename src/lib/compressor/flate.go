@@ -3,7 +3,7 @@ package compressor
 import "io"
 import "compress/flate"
 
-// FlateCompressor Flate压缩器
+// FlateCompressor DEFLATE压缩器
 type FlateCompressor struct {
 }
 

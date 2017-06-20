@@ -16,9 +16,9 @@ func main() {
 	serverHost := tool.ServerConfig["server"].(string)
 	serverPort := tool.ServerConfig["server_port"].(float64)
 
-	crypter := crypter.Bitcrypter{Secret: 0xB2}
+	crypter := &crypter.Bitcrypter{Secret: 0xB2}
 	parser := parser.HTTPParser{}
-	compressor := compressor.FlateCompressor{}
+	compressor := &compressor.FlateCompressor{}
 
 	host := http.Host{
 		Domain: serverHost,
@@ -29,7 +29,7 @@ func main() {
 		Host:       host,
 		Crypter:    crypter,
 		Parser:     parser,
-		Compressor: &compressor,
+		Compressor: compressor,
 	}
 
 	server.Start()

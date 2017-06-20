@@ -10,7 +10,7 @@ type ZlibCompressor struct {
 
 // NewWriter 创建新的写入器
 func (compressor *ZlibCompressor) NewWriter(w io.Writer, level int) (Writer, error) {
-	return zlib.NewWriter(w), nil
+	return zlib.NewWriterLevel(w, level)
 }
 
 // NewReader 创建新的读取器

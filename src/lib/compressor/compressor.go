@@ -4,7 +4,7 @@ import "io"
 
 // Writer 读取器
 type Writer interface {
-	Write(data []byte) (n int, err error)
+	io.Writer
 	Flush() error
 	Close() error
 }

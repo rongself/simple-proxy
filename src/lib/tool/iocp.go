@@ -27,10 +27,9 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte, crypter crypter.Crypte
 	}
 	for {
 		nr, er := src.Read(buf)
-		// log.Println("Copy:", string(buf[0:nr]), "\n----END----")
 		if nr > 0 {
-			nw, ew := dst.Write(buf[0:nr])
-
+			b := buf[0:nr]
+			nw, ew := dst.Write(*crypter.Encode(&b))
 			if c, ok := dst.(compressor.Writer); ok {
 				err := c.Flush()
 				if err != nil {

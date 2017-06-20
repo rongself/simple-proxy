@@ -74,6 +74,8 @@ func (client Client) HandleRequest(brower net.Conn) {
 	if err != nil {
 		log.Panic("初始化压缩器失败", err)
 	}
+	defer cr.Close()
+	defer cw.Close()
 
 	//代理过来的流量写回到浏览器
 	channel := make(chan int64, 1)
