@@ -18,24 +18,23 @@ git clone https://github.com/rongself/simple-proxy.git
 # 编译项目
 cd simple-proxy && ./install.sh
 ```
-执行成功之后会在./bin文件夹下生成以下
+执行成功之后会在项目根目录和./bin文件夹下生成以下文件
 
 ```
 ./
 ├── bin
 │   ├── client                 // 客户端可执行文件
-│   ├── config
-│   │   ├── client.config.json // 客户端配置文件
-│   │   └── server.config.json // 服务器端配置文件
 │   └── server                 // 服务器端可执行文件
-
+├── config
+│   ├── client.config.json // 客户端配置文件
+│   └── server.config.json // 服务器端配置文件
 ```
 
 ## 配置
 
 ### 服务器端
 
-编辑配置文件 `./bin/server.config.json` 
+编辑配置文件 `./config/server.config.json` 
 
 ```
 
@@ -51,7 +50,7 @@ cd simple-proxy && ./install.sh
 
 ### 客户端
 
-编辑配置文件 `./bin/client.config.json` 
+编辑配置文件 `./config/client.config.json` 
 
 ```
 
