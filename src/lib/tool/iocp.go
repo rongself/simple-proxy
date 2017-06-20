@@ -1,7 +1,9 @@
 package tool
 
 import (
+	"compress/flate"
 	"io"
+	"log"
 
 	"lib/crypter"
 )
@@ -20,9 +22,17 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte, crypter crypter.Crypte
 	}
 	for {
 		nr, er := src.Read(buf)
+		// log.Println("Copy:", string(buf[0:nr]), "\n----END----")
 		if nr > 0 {
 			nw, ew := dst.Write(buf[0:nr])
-			// nw, ew := dst.Write(crypter.Encode(buf[0:nr]))
+
+			if c, ok := dst.(*flate.Writer); ok {
+				err := c.Flush()
+				if err != nil {
+					log.Println("Flush Error:", err)
+				}
+			}
+
 			if nw > 0 {
 				written += int64(nw)
 			}

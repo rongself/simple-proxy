@@ -6,6 +6,7 @@ import "io"
 type Writer interface {
 	Write(data []byte) (n int, err error)
 	Flush() error
+	Close() error
 }
 
 // Compressor 压缩器
