@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"compress/flate"
 	"log"
 	"net"
 
@@ -67,12 +68,18 @@ func (client Client) HandleRequest(brower net.Conn) {
 	log.Println("连接Proxy服务器成功:", client.ProxyHost.String())
 	defer proxyServer.Close()
 
+	// 包装代理服务器通道
+	cr := client.Compressor.NewReader(proxyServer)
+	cw, err := client.Compressor.NewWriter(proxyServer, flate.DefaultCompression)
+	if err != nil {
+		log.Panic("初始化压缩器失败", err)
+	}
+
 	//代理过来的流量写回到浏览器
 	channel := make(chan int64, 1)
 	defer close(channel)
 	go func() {
-		// cr := flate.NewReader(proxyServer)
-		w, err := tool.Copy(brower, proxyServer, client.Crypter)
+		w, err := tool.Copy(brower, cr, client.Crypter)
 		log.Println("client -> brower", w)
 		if err != nil {
 			log.Println("错误:client -> brower", w, err)
@@ -80,14 +87,9 @@ func (client Client) HandleRequest(brower net.Conn) {
 		channel <- w
 	}()
 
-	// cw, err := flate.NewWriter(proxyServer, flate.DefaultCompression)
-	// if err != nil {
-	// 	log.Panic("初始化压缩器失败", err)
-	// }
-
 	//浏览器过来的流量写入到代理服务器
 	go func() {
-		w, err := tool.Copy(proxyServer, brower, client.Crypter)
+		w, err := tool.Copy(cw, brower, client.Crypter)
 		log.Println("brower -> proxy", w)
 		if err != nil {
 			log.Println("错误:brower -> proxy", w, err)

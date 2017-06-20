@@ -17,8 +17,8 @@ func main() {
 	local := tool.ClientConfig["local"].(string)
 	localPort := tool.ClientConfig["local_port"].(float64)
 
-	compressor := compressor.FlateCompressor{}
 	crypter := crypter.Bitcrypter{Secret: 0xB2}
+	compressor := compressor.FlateCompressor{}
 
 	proxyHost := http.Host{
 		Domain: remote,
@@ -34,7 +34,7 @@ func main() {
 		ProxyHost:  proxyHost,
 		Listen:     listen,
 		Crypter:    crypter,
-		Compressor: compressor,
+		Compressor: &compressor,
 	}
 
 	client.Start()

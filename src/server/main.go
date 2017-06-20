@@ -29,7 +29,7 @@ func main() {
 		Host:       host,
 		Crypter:    crypter,
 		Parser:     parser,
-		Compressor: compressor,
+		Compressor: &compressor,
 	}
 
 	server.Start()

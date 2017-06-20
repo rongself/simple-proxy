@@ -1,16 +1,21 @@
 package tool
 
 import (
-	"compress/flate"
 	"io"
 	"log"
 
+	"lib/compressor"
 	"lib/crypter"
 )
 
 // Copy copy
 func Copy(dst io.Writer, src io.Reader, crypter crypter.Crypter) (written int64, err error) {
 	return copyBuffer(dst, src, nil, crypter)
+}
+
+// CopyBuffer with buffer
+func CopyBuffer(dst io.Writer, src io.Reader, buf []byte, crypter crypter.Crypter) (written int64, err error) {
+	return copyBuffer(dst, src, buf, crypter)
 }
 
 // copyBuffer is the actual implementation of Copy and CopyBuffer.
@@ -26,7 +31,7 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte, crypter crypter.Crypte
 		if nr > 0 {
 			nw, ew := dst.Write(buf[0:nr])
 
-			if c, ok := dst.(*flate.Writer); ok {
+			if c, ok := dst.(compressor.Writer); ok {
 				err := c.Flush()
 				if err != nil {
 					log.Println("Flush Error:", err)

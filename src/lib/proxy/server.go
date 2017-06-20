@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"compress/flate"
 	"log"
 	"net"
 	"time"
@@ -58,13 +59,16 @@ func (server Server) HandleRequest(client net.Conn) {
 	var buffer = make([]byte, 2048)
 
 	//用压缩器包装客户端
-	// cr := flate.NewReader(client)
-	// cw, err := flate.NewWriter(client, flate.DefaultCompression)
-	// if err != nil {
-	// 	log.Panic("初始化压缩器失败", err)
-	// }
+	cr := server.Compressor.NewReader(client)
+	cw, err := server.Compressor.NewWriter(client, flate.DefaultCompression)
 
-	len, err := client.Read(buffer)
+	if err != nil {
+		log.Panic("初始化压缩器失败", err)
+	}
+	defer cr.Close()
+	defer cw.Close()
+
+	len, err := cr.Read(buffer)
 	if err != nil {
 		log.Panic("请求数据读取流错误: ", err)
 	}
@@ -86,14 +90,11 @@ func (server Server) HandleRequest(client net.Conn) {
 	log.Println("连接Web服务器成功:", request.String())
 
 	if request.Method == http.CONNECT {
-		// if err != nil {
-		// 	log.Panic("初始化压缩器失败", err)
-		// }
 		now := time.Now()
 		// // 当请求是HTTPS请求,浏览器会发送一个CONNECT请求告诉代理服务器请求的域名和端口
-		client.Write([]byte("HTTP/1.1 200 Connection established\r\n\r\n"))
-		// // cw.Write(server.Crypter.Encode([]byte("HTTP/1.1 200 Connection established\r\n\r\n")))
-		// cw.Flush()
+		cw.Write([]byte("HTTP/1.1 200 Connection established\r\n\r\n"))
+		// cw.Write(server.Crypter.Encode([]byte("HTTP/1.1 200 Connection established\r\n\r\n")))
+		cw.Flush()
 		log.Println("HTTPS 200 执行时间:", time.Since(now))
 
 	} else {
@@ -107,7 +108,7 @@ func (server Server) HandleRequest(client net.Conn) {
 	//客户端过来的流量写入到目标Web服务器
 	go func() {
 		now := time.Now()
-		w, err := tool.Copy(webServer, client, server.Crypter)
+		w, err := tool.Copy(webServer, cr, server.Crypter)
 		if err != nil {
 			log.Println("错误:proxy服务器 -> Web服务器", w, err)
 		}
@@ -118,7 +119,7 @@ func (server Server) HandleRequest(client net.Conn) {
 	//目标Web服务器的相应数据写入到客户端
 	go func() {
 		now := time.Now()
-		w, err := tool.Copy(client, webServer, server.Crypter)
+		w, err := tool.Copy(cw, webServer, server.Crypter)
 		if err != nil {
 			log.Println("错误:proxy服务器 -> client:", w, err)
 		}
