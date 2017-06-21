@@ -19,6 +19,7 @@ type Server struct {
 	Crypter    crypter.Crypter
 	Parser     parser.Parser
 	Compressor compressor.Compressor
+	Deadline   time.Duration
 }
 
 // Start start proxy server
@@ -41,6 +42,8 @@ func (server Server) Start() {
 		if err != nil {
 			log.Panic("接受客户端连接失败", err)
 		}
+		client.SetDeadline(time.Now().Add(server.Deadline))
+
 		log.Println("接受客户端连接成功:", client.RemoteAddr().String())
 		go server.HandleRequest(client)
 	}
@@ -54,6 +57,7 @@ func (server Server) HandleRequest(client net.Conn) {
 			log.Println(err)
 		}
 	}()
+	defer client.Close()
 
 	// @TOFIX 如果第一行超过了buffer长度,那就没有换行符,也就截取不到第一行,nginx 默认最大header行长度为8192byte
 	var buffer = make([]byte, 2048)
@@ -75,16 +79,17 @@ func (server Server) HandleRequest(client net.Conn) {
 	// log.Println("解压后的流量:", string(buffer[:len]))
 
 	// request, err := server.Parser.Parse(buffer)
-	request, err := server.Parser.Parse(*server.Crypter.Decode(&buffer))
+	request, err := server.Parser.Parse(buffer)
 	if err != nil {
 		log.Panic("请求解析失败: ", err)
 	}
 
-	webServer, err := net.DialTimeout("tcp", request.Host.String(), time.Duration(60*time.Second))
+	webServer, err := net.DialTimeout("tcp", request.Host.String(), time.Duration(server.Deadline))
 	if err != nil {
 		log.Panic("连接Web服务器失败: ", request, err)
 	}
 	defer webServer.Close()
+	webServer.SetDeadline(time.Now().Add(server.Deadline))
 
 	log.Println("连接Web服务器成功:", request.String())
 
@@ -93,7 +98,7 @@ func (server Server) HandleRequest(client net.Conn) {
 		// // 当请求是HTTPS请求,浏览器会发送一个CONNECT请求告诉代理服务器请求的域名和端口
 		//cw.Write([]byte("HTTP/1.1 200 Connection established\r\n\r\n"))
 		b := []byte("HTTP/1.1 200 Connection established\r\n\r\n")
-		cw.Write(*server.Crypter.Encode(&b))
+		cw.Write(b)
 		cw.Flush()
 		log.Println("HTTPS 200 执行时间:", time.Since(now))
 
@@ -102,7 +107,7 @@ func (server Server) HandleRequest(client net.Conn) {
 		webServer.Write(buffer[:len])
 	}
 
-	channel := make(chan int64, 1)
+	channel := make(chan bool, 2)
 	defer close(channel)
 
 	//客户端过来的流量写入到目标Web服务器
@@ -110,10 +115,14 @@ func (server Server) HandleRequest(client net.Conn) {
 		now := time.Now()
 		w, err := tool.Copy(webServer, cr, server.Crypter)
 		if err != nil {
-			log.Println("错误:proxy服务器 -> Web服务器", w, err)
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				log.Println("超时:proxy服务器 -> Web服务器", err)
+			} else {
+				log.Println("错误:proxy服务器 -> Web服务器", w, err)
+			}
 		}
 		log.Println("proxy服务器 -> Web服务器 执行时间:", time.Since(now), "writen:", w)
-		channel <- w
+		channel <- true
 	}()
 
 	//目标Web服务器的相应数据写入到客户端
@@ -121,10 +130,15 @@ func (server Server) HandleRequest(client net.Conn) {
 		now := time.Now()
 		w, err := tool.Copy(cw, webServer, server.Crypter)
 		if err != nil {
-			log.Println("错误:proxy服务器 -> client:", w, err)
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				log.Println("超时:proxy服务器 -> client", err)
+			} else {
+				log.Println("错误:proxy服务器 -> client", w, err)
+			}
+
 		}
 		log.Println("proxy服务器 -> client 执行时间:", time.Since(now), "writen:", w)
-		channel <- w
+		channel <- true
 	}()
 
 	w1, w2 := <-channel, <-channel
