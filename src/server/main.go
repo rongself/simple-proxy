@@ -2,6 +2,7 @@ package main
 
 import (
 	"strconv"
+	"time"
 
 	"lib/compressor"
 	"lib/crypter"
@@ -30,6 +31,7 @@ func main() {
 		Crypter:    crypter,
 		Parser:     parser,
 		Compressor: compressor,
+		Deadline:   30 * time.Second,
 	}
 
 	server.Start()

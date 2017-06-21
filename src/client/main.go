@@ -8,6 +8,7 @@ import (
 	"lib/http"
 	"lib/proxy"
 	"lib/tool"
+	"time"
 )
 
 func main() {
@@ -35,6 +36,7 @@ func main() {
 		Listen:     listen,
 		Crypter:    crypter,
 		Compressor: compressor,
+		Deadline:   30 * time.Second,
 	}
 
 	client.Start()
