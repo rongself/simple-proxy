@@ -42,7 +42,7 @@ func (server Server) Start() {
 		if err != nil {
 			log.Panic("接受客户端连接失败", err)
 		}
-		// client.SetDeadline(time.Now().Add(server.Deadline))
+		client.SetDeadline(time.Now().Add(server.Deadline))
 
 		log.Println("接受客户端连接成功:", client.RemoteAddr().String())
 		go server.HandleRequest(client)
@@ -84,12 +84,12 @@ func (server Server) HandleRequest(client net.Conn) {
 		log.Panic("请求解析失败: ", err)
 	}
 
-	webServer, err := net.DialTimeout("tcp", request.Host.String(), time.Duration(10*time.Second))
+	webServer, err := net.DialTimeout("tcp", request.Host.String(), time.Duration(server.Deadline))
 	if err != nil {
 		log.Panic("连接Web服务器失败: ", request, err)
 	}
 	defer webServer.Close()
-	// webServer.SetDeadline(time.Now().Add(server.Deadline))
+	webServer.SetDeadline(time.Now().Add(server.Deadline))
 
 	log.Println("连接Web服务器成功:", request.String())
 

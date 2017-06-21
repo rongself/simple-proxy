@@ -38,7 +38,7 @@ func (client Client) Start() {
 			log.Panic("接受连接失败", err)
 		}
 		log.Println("浏览器连接成功:", brower.RemoteAddr().String())
-		// brower.SetDeadline(time.Now().Add(client.Deadline))
+		brower.SetDeadline(time.Now().Add(client.Deadline))
 		now := time.Now()
 
 		go func() {
@@ -67,7 +67,7 @@ func (client Client) HandleRequest(brower net.Conn) {
 	if err != nil {
 		log.Panic("连接Proxy服务器失败: ", err)
 	}
-	// proxyServer.SetDeadline(time.Now().Add(client.Deadline))
+	proxyServer.SetDeadline(time.Now().Add(client.Deadline))
 	log.Println("连接Proxy服务器成功:", client.ProxyHost.String())
 	defer proxyServer.Close()
 
@@ -87,7 +87,11 @@ func (client Client) HandleRequest(brower net.Conn) {
 		w, err := tool.Copy(brower, cr, client.Crypter)
 		log.Println("client -> brower", w)
 		if err != nil {
-			log.Println("错误:client -> brower", w, err)
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				log.Println("超时:client -> brower", err)
+			} else {
+				log.Println("错误:client -> brower", w, err)
+			}
 		}
 		channel <- true
 	}()
@@ -97,7 +101,11 @@ func (client Client) HandleRequest(brower net.Conn) {
 		w, err := tool.Copy(cw, brower, client.Crypter)
 		log.Println("brower -> proxy", w)
 		if err != nil {
-			log.Println("错误:brower -> proxy", w, err)
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				log.Println("超时:brower -> proxy", err)
+			} else {
+				log.Println("错误:brower -> proxy", w, err)
+			}
 		}
 		channel <- true
 	}()
