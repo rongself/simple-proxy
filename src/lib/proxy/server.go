@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 
+	"io"
 	"lib/compressor"
 	"lib/crypter"
 	"lib/http"
@@ -62,23 +63,27 @@ func (server Server) HandleRequest(client net.Conn) {
 	// @TOFIX 如果第一行超过了buffer长度,那就没有换行符,也就截取不到第一行,nginx 默认最大header行长度为8192byte
 	var buffer = make([]byte, 2048)
 
-	// 用压缩器包装客户端
-	cr := server.Compressor.NewReader(client)
-	cw, err := server.Compressor.NewWriter(client, flate.DefaultCompression)
-	if err != nil {
-		log.Panic("初始化压缩器失败", err)
+	var compressClientConn io.ReadWriteCloser
+	if server.Compressor != nil {
+		// flate.NewWriter()
+		var err error
+		server.Compressor.Init(client, flate.DefaultCompression)
+		compressClientConn = server.Compressor
+		if err != nil {
+			log.Panic("初始化压缩器失败", err)
+		}
+	} else {
+		compressClientConn = client
 	}
-	defer cr.Close()
-	defer cw.Close()
+	defer compressClientConn.Close()
 
-	len, err := cr.Read(buffer)
+	len, err := compressClientConn.Read(buffer)
 	if err != nil {
 		log.Panic("请求数据读取流错误: ", err)
 	}
 
 	// log.Println("解压后的流量:", string(buffer[:len]))
 
-	// request, err := server.Parser.Parse(buffer)
 	request, err := server.Parser.Parse(buffer)
 	if err != nil {
 		log.Panic("请求解析失败: ", err)
@@ -96,10 +101,11 @@ func (server Server) HandleRequest(client net.Conn) {
 	if request.Method == http.CONNECT {
 		now := time.Now()
 		// // 当请求是HTTPS请求,浏览器会发送一个CONNECT请求告诉代理服务器请求的域名和端口
-		//cw.Write([]byte("HTTP/1.1 200 Connection established\r\n\r\n"))
 		b := []byte("HTTP/1.1 200 Connection established\r\n\r\n")
-		cw.Write(b)
-		cw.Flush()
+		compressClientConn.Write(b)
+		if compressClientConn, ok := compressClientConn.(compressor.Compressor); ok {
+			compressClientConn.Flush()
+		}
 		log.Println("HTTPS 200 执行时间:", time.Since(now))
 
 	} else {
@@ -113,7 +119,7 @@ func (server Server) HandleRequest(client net.Conn) {
 	//客户端过来的流量写入到目标Web服务器
 	go func() {
 		now := time.Now()
-		w, err := tool.Copy(webServer, cr, server.Crypter)
+		w, err := tool.Copy(webServer, compressClientConn, server.Crypter)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				log.Println("超时:proxy服务器 -> Web服务器", err)
@@ -128,7 +134,7 @@ func (server Server) HandleRequest(client net.Conn) {
 	//目标Web服务器的相应数据写入到客户端
 	go func() {
 		now := time.Now()
-		w, err := tool.Copy(cw, webServer, server.Crypter)
+		w, err := tool.Copy(compressClientConn, webServer, server.Crypter)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				log.Println("超时:proxy服务器 -> client", err)

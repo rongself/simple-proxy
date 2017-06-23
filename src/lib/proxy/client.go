@@ -2,14 +2,25 @@ package proxy
 
 import (
 	"compress/flate"
+	"io"
 	"log"
 	"net"
 
 	"lib/compressor"
+	"lib/conn"
 	"lib/crypter"
 	"lib/http"
 	"lib/tool"
 	"time"
+)
+
+const (
+	//ClientReadTimeOut 客户端连接超时
+	ClientReadTimeOut = 5 * time.Hour
+	//ClientWriteTimeOut 客户端写超时
+	ClientWriteTimeOut = 5 * time.Hour
+	//MaxProxyConn 允许最大Porxy服务器连接数
+	MaxProxyConn = 5
 )
 
 //Client proxy client
@@ -32,6 +43,46 @@ func (client Client) Start() {
 	log.Println("客户端开始监听端口:", client.Listen.String())
 	defer localServer.Close()
 
+	pool, err := conn.InitPool(MaxProxyConn, 5)
+	tool.Handle(err, "初始化连接池错误")
+
+	// ip, err := net.ResolveTCPAddr("tcp", client.ProxyHost.String())
+	// if err != nil {
+	// 	log.Panic("IP解析失败: ", err)
+	// }
+
+	// for i := 0; i < MaxProxyConn; i++ {
+
+	// 	proxyServer, err := net.DialTCP("tcp", nil, ip)
+	// 	if err != nil {
+	// 		log.Panic("连接Proxy服务器失败: ", err)
+	// 	}
+	// 	log.Println("worker", proxyServer, "连接Proxy服务器成功:", client.ProxyHost.String())
+	// 	defer func() {
+	// 		proxyServer.Close()
+	// 		log.Println("worker", proxyServer, "关闭")
+	// 	}()
+
+	// 	var cr io.ReadCloser
+	// 	var cw io.WriteCloser
+	// 	if client.Compressor != nil {
+	// 		// flate.NewWriter()
+	// 		var err error
+	// 		cr = client.Compressor.NewReader(proxyServer)
+	// 		cw, err = client.Compressor.NewWriter(proxyServer, flate.DefaultCompression)
+	// 		if err != nil {
+	// 			log.Panic("初始化压缩器失败", err)
+	// 		}
+	// 	} else {
+	// 		cr, cw = proxyServer, proxyServer
+	// 	}
+	// 	defer cr.Close()
+	// 	defer cw.Close()
+
+	// 	pool.LockPush(proxyServer)
+
+	// }
+
 	for {
 		brower, err := localServer.Accept()
 		if err != nil {
@@ -42,14 +93,14 @@ func (client Client) Start() {
 		now := time.Now()
 
 		go func() {
-			client.HandleRequest(brower)
+			client.HandleRequest(brower, &pool)
 			log.Println("请求处理完成,处理时间:", time.Since(now))
 		}()
 	}
 }
 
 // HandleRequest handle
-func (client Client) HandleRequest(brower net.Conn) {
+func (client Client) HandleRequest(brower net.Conn, pool *conn.Pool) {
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -72,19 +123,26 @@ func (client Client) HandleRequest(brower net.Conn) {
 	defer proxyServer.Close()
 
 	// 包装代理服务器通道
-	cr := client.Compressor.NewReader(proxyServer)
-	cw, err := client.Compressor.NewWriter(proxyServer, flate.DefaultCompression)
-	if err != nil {
-		log.Panic("初始化压缩器失败", err)
+
+	var compressProxyConn io.ReadWriteCloser
+	if client.Compressor != nil {
+		// flate.NewWriter()
+		var err error
+		client.Compressor.Init(proxyServer, flate.DefaultCompression)
+		compressProxyConn = client.Compressor
+		if err != nil {
+			log.Panic("初始化压缩器失败", err)
+		}
+	} else {
+		compressProxyConn = proxyServer
 	}
-	defer cr.Close()
-	defer cw.Close()
+	defer compressProxyConn.Close()
 
 	//代理过来的流量写回到浏览器
 	channel := make(chan bool, 2)
 	defer close(channel)
 	go func() {
-		w, err := tool.Copy(brower, cr, client.Crypter)
+		w, err := tool.Copy(brower, compressProxyConn, client.Crypter)
 		log.Println("client -> brower", w)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -98,7 +156,7 @@ func (client Client) HandleRequest(brower net.Conn) {
 
 	//浏览器过来的流量写入到代理服务器
 	go func() {
-		w, err := tool.Copy(cw, brower, client.Crypter)
+		w, err := tool.Copy(compressProxyConn, brower, client.Crypter)
 		log.Println("brower -> proxy", w)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {

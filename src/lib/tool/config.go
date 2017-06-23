@@ -8,6 +8,7 @@ var ServerConfig = map[string]interface{}{
 	"password":    "barfoo!",
 	"method":      "bitcrypt",
 	"timeout":     60,
+	"compress":    "",
 }
 
 // ClientConfig 客户端端配置格式
@@ -19,6 +20,7 @@ var ClientConfig = map[string]interface{}{
 	"password":    "barfoo!",
 	"method":      "bitcrypt",
 	"timeout":     60,
+	"compress":    "",
 }
 
 func init() {

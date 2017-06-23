@@ -2,15 +2,38 @@ package compressor
 
 import "io"
 
-// Writer 读取器
+// Reader 读取器
+type Reader interface {
+	io.Reader
+}
+
+// Writer 写入器
 type Writer interface {
 	io.Writer
+}
+
+// Closer 关闭器
+type Closer interface {
+	io.Closer
+}
+
+// Flusher 刷新器
+type Flusher interface {
 	Flush() error
-	Close() error
+}
+
+//WriteFlushCloser 组合接口
+type WriteFlushCloser interface {
+	Writer
+	Flusher
+	Closer
 }
 
 // Compressor 压缩器
 type Compressor interface {
-	NewWriter(w io.Writer, level int) (Writer, error)
-	NewReader(r io.Reader) io.ReadCloser
+	Reader
+	Writer
+	Closer
+	Flusher
+	Init(rwc io.ReadWriteCloser, level int) error
 }

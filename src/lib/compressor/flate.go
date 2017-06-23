@@ -5,14 +5,53 @@ import "compress/flate"
 
 // FlateCompressor DEFLATE压缩器
 type FlateCompressor struct {
+	reader Reader
+	writer WriteFlushCloser
 }
 
-// NewWriter 创建新的写入器
-func (compressor *FlateCompressor) NewWriter(w io.Writer, level int) (Writer, error) {
-	return flate.NewWriter(w, level)
+func newCompressor(rwc io.ReadWriteCloser, level int) (FlateCompressor, error) {
+	r := flate.NewReader(rwc)
+	w, err := flate.NewWriter(rwc, level)
+	c := FlateCompressor{
+		reader: r,
+		writer: w,
+	}
+	return c, err
 }
 
-// NewReader 创建新的读取器
-func (compressor *FlateCompressor) NewReader(r io.Reader) io.ReadCloser {
-	return flate.NewReader(r)
+//Init 初始化
+func (compressor *FlateCompressor) Init(rwc io.ReadWriteCloser, level int) error {
+	r := flate.NewReader(rwc)
+	w, err := flate.NewWriter(rwc, level)
+	compressor.reader = r
+	compressor.writer = w
+	return err
+}
+
+func (compressor *FlateCompressor) Write(p []byte) (n int, err error) {
+	return compressor.writer.Write(p)
+}
+
+//Flush 提交数据
+func (compressor *FlateCompressor) Flush() error {
+	return compressor.writer.Flush()
+}
+
+func (compressor *FlateCompressor) Read(p []byte) (n int, err error) {
+	return compressor.reader.Read(p)
+}
+
+// Close 关闭连接
+func (compressor *FlateCompressor) Close() error {
+
+	var err error
+	if e := compressor.writer.Close(); e != nil {
+		err = e
+	}
+
+	if e := compressor.writer.Close(); e != nil {
+		err = e
+	}
+
+	return err
 }

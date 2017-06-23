@@ -3,5 +3,6 @@
     "server_port":8888,
     "password":"barfoo!",
     "method": "bitcrypt",
-    "timeout":60
+    "timeout":60,
+    "compress":"flate"
 }

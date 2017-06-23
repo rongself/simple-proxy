@@ -31,7 +31,7 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte, crypter crypter.Crypte
 		if nr > 0 {
 			b := buf[0:nr]
 			nw, ew := dst.Write(b)
-			if c, ok := dst.(compressor.Writer); ok {
+			if c, ok := dst.(compressor.Compressor); ok {
 				err := c.Flush()
 				if err != nil {
 					log.Println("Flush Error:", err)
