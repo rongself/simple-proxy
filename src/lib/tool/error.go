@@ -17,3 +17,10 @@ func HandleAndPanic(err error, v ...interface{}) {
 		log.Panicln(v, err)
 	}
 }
+
+// Panic 处理错误
+func Panic(err error) {
+	if err != nil {
+		panic(err)
+	}
+}

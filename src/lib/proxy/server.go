@@ -43,7 +43,6 @@ func (server Server) Start() {
 		if err != nil {
 			log.Panic("接受客户端连接失败", err)
 		}
-		client.SetDeadline(time.Now().Add(server.Deadline))
 
 		log.Println("接受客户端连接成功:", client.RemoteAddr().String())
 		go server.HandleRequest(client)

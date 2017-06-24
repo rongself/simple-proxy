@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 
 	"lib/compressor"
 	"lib/conn"
@@ -20,7 +21,7 @@ const (
 	//ClientWriteTimeOut 客户端写超时
 	ClientWriteTimeOut = 5 * time.Hour
 	//MaxProxyConn 允许最大Porxy服务器连接数
-	MaxProxyConn = 5
+	MaxProxyConn = 2
 )
 
 //Client proxy client
@@ -32,56 +33,51 @@ type Client struct {
 	Deadline   time.Duration
 }
 
+// ConnProxy 连接Proxy服务器
+func (client Client) ConnProxy(ip *net.TCPAddr) (io.ReadWriteCloser, error) {
+
+	proxyServer, err := net.DialTCP("tcp", nil, ip)
+	tool.HandleAndPanic(err, "连接Proxy失败")
+
+	//压缩选项
+	if client.Compressor != nil {
+		err := client.Compressor.Init(proxyServer, flate.DefaultCompression)
+		tool.HandleAndPanic(err, "初始化压缩器失")
+		return client.Compressor, err
+	}
+
+	return proxyServer, err
+
+}
+
 // Start start proxy client
 func (client Client) Start() {
 
 	localServer, err := net.Listen("tcp", client.Listen.String())
-	if err != nil {
-		log.Panic("端口监听失败", err)
-	}
+	tool.HandleAndPanic(err, "端口监听失败")
 
 	log.Println("客户端开始监听端口:", client.Listen.String())
 	defer localServer.Close()
 
-	pool, err := conn.InitPool(MaxProxyConn, 5)
-	tool.Handle(err, "初始化连接池错误")
+	pool, err := conn.InitPool(MaxProxyConn, 2)
+	tool.HandleAndPanic(err, "初始化连接池错误")
 
-	// ip, err := net.ResolveTCPAddr("tcp", client.ProxyHost.String())
-	// if err != nil {
-	// 	log.Panic("IP解析失败: ", err)
-	// }
+	ip, err := net.ResolveTCPAddr("tcp", client.ProxyHost.String())
+	tool.HandleAndPanic(err, "IP解析失败: ")
 
-	// for i := 0; i < MaxProxyConn; i++ {
+	// 为连接池填充连接
+	for i := 0; i < MaxProxyConn; i++ {
 
-	// 	proxyServer, err := net.DialTCP("tcp", nil, ip)
-	// 	if err != nil {
-	// 		log.Panic("连接Proxy服务器失败: ", err)
-	// 	}
-	// 	log.Println("worker", proxyServer, "连接Proxy服务器成功:", client.ProxyHost.String())
-	// 	defer func() {
-	// 		proxyServer.Close()
-	// 		log.Println("worker", proxyServer, "关闭")
-	// 	}()
+		proxyServer, err := client.ConnProxy(ip)
+		tool.HandleAndPanic(err, "连接Proxy服务器失败: ")
+		log.Println("worker", proxyServer, "连接Proxy服务器成功:", client.ProxyHost.String())
+		pool.Push(proxyServer)
+		defer func() {
+			proxyServer.Close()
+			log.Println("worker", proxyServer, "关闭")
+		}()
 
-	// 	var cr io.ReadCloser
-	// 	var cw io.WriteCloser
-	// 	if client.Compressor != nil {
-	// 		// flate.NewWriter()
-	// 		var err error
-	// 		cr = client.Compressor.NewReader(proxyServer)
-	// 		cw, err = client.Compressor.NewWriter(proxyServer, flate.DefaultCompression)
-	// 		if err != nil {
-	// 			log.Panic("初始化压缩器失败", err)
-	// 		}
-	// 	} else {
-	// 		cr, cw = proxyServer, proxyServer
-	// 	}
-	// 	defer cr.Close()
-	// 	defer cw.Close()
-
-	// 	pool.LockPush(proxyServer)
-
-	// }
+	}
 
 	for {
 		brower, err := localServer.Accept()
@@ -109,40 +105,15 @@ func (client Client) HandleRequest(brower net.Conn, pool *conn.Pool) {
 	}()
 	defer brower.Close()
 
-	ip, err := net.ResolveTCPAddr("tcp", client.ProxyHost.String())
-	if err != nil {
-		log.Panic("IP解析失败: ", err)
-	}
 	// 写在handle里,每一个浏览器请求建立一个TCP连接来传送
-	proxyServer, err := net.DialTCP("tcp", nil, ip)
-	if err != nil {
-		log.Panic("连接Proxy服务器失败: ", err)
-	}
-	proxyServer.SetDeadline(time.Now().Add(client.Deadline))
-	log.Println("连接Proxy服务器成功:", client.ProxyHost.String())
-	defer proxyServer.Close()
-
-	// 包装代理服务器通道
-
-	var compressProxyConn io.ReadWriteCloser
-	if client.Compressor != nil {
-		// flate.NewWriter()
-		var err error
-		client.Compressor.Init(proxyServer, flate.DefaultCompression)
-		compressProxyConn = client.Compressor
-		if err != nil {
-			log.Panic("初始化压缩器失败", err)
-		}
-	} else {
-		compressProxyConn = proxyServer
-	}
-	defer compressProxyConn.Close()
-
+	proxyServer := pool.Pop().(io.ReadWriteCloser)
+	tool.Debug("取出,剩余:", pool.Len())
 	//代理过来的流量写回到浏览器
-	channel := make(chan bool, 2)
-	defer close(channel)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
-		w, err := tool.Copy(brower, compressProxyConn, client.Crypter)
+		w, err := tool.Copy(brower, proxyServer, client.Crypter)
 		log.Println("client -> brower", w)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -150,13 +121,21 @@ func (client Client) HandleRequest(brower net.Conn, pool *conn.Pool) {
 			} else {
 				log.Println("错误:client -> brower", w, err)
 			}
+			defer proxyServer.Close()
+			ip, err := net.ResolveTCPAddr("tcp", client.ProxyHost.String())
+			tool.HandleAndPanic(err, "IP解析失败: ")
+			refeed, err := client.ConnProxy(ip)
+			tool.HandleAndPanic(err, "补充Proxy服务器失败: ")
+			pool.Push(refeed)
+			tool.Debug("异常归还", pool.Len())
 		}
-		channel <- true
+		wg.Done()
 	}()
 
 	//浏览器过来的流量写入到代理服务器
+	wg.Add(1)
 	go func() {
-		w, err := tool.Copy(compressProxyConn, brower, client.Crypter)
+		w, err := tool.Copy(proxyServer, brower, client.Crypter)
 		log.Println("brower -> proxy", w)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
@@ -164,11 +143,23 @@ func (client Client) HandleRequest(brower net.Conn, pool *conn.Pool) {
 			} else {
 				log.Println("错误:brower -> proxy", w, err)
 			}
+			defer proxyServer.Close()
+
+			ip, err := net.ResolveTCPAddr("tcp", client.ProxyHost.String())
+			tool.HandleAndPanic(err, "IP解析失败: ")
+			refeed, err := client.ConnProxy(ip)
+			tool.HandleAndPanic(err, "补充Proxy服务器失败: ")
+			pool.Push(refeed)
+			tool.Debug("异常归还", pool.Len())
+
+		} else {
+			pool.Push(proxyServer)
+			tool.Debug("正常归还2", pool.Len())
 		}
-		channel <- true
+		wg.Done()
 	}()
 
-	w1, w2 := <-channel, <-channel
-	log.Println("w1:", w1, "w2:", w2)
+	wg.Wait()
+	log.Println("done")
 
 }
