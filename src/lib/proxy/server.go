@@ -4,11 +4,11 @@ import (
 	"compress/flate"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"io"
 	"lib/compressor"
-	"lib/crypter"
 	"lib/http"
 	"lib/parser"
 	"lib/tool"
@@ -17,9 +17,8 @@ import (
 //Server proxy server
 type Server struct {
 	Host       http.Host
-	Crypter    crypter.Crypter
 	Parser     parser.Parser
-	Compressor compressor.Compressor
+	Compressor string
 	Deadline   time.Duration
 }
 
@@ -43,7 +42,6 @@ func (server Server) Start() {
 		if err != nil {
 			log.Panic("接受客户端连接失败", err)
 		}
-		client.SetDeadline(time.Now().Add(server.Deadline))
 
 		log.Println("接受客户端连接成功:", client.RemoteAddr().String())
 		go server.HandleRequest(client)
@@ -60,39 +58,28 @@ func (server Server) HandleRequest(client net.Conn) {
 	}()
 	defer client.Close()
 
-	// @TOFIX 如果第一行超过了buffer长度,那就没有换行符,也就截取不到第一行,nginx 默认最大header行长度为8192byte
-	var buffer = make([]byte, 2048)
-
 	var compressClientConn io.ReadWriteCloser
-	if server.Compressor != nil {
-		// flate.NewWriter()
+	if server.Compressor != "" {
 		var err error
-		server.Compressor.Init(client, flate.DefaultCompression)
-		compressClientConn = server.Compressor
-		if err != nil {
-			log.Panic("初始化压缩器失败", err)
-		}
+		var compressor = &compressor.FlateCompressor{}
+		compressor.Init(client, flate.DefaultCompression)
+		compressClientConn = compressor
+		tool.HandleAndPanic(err, "初始化压缩器失败")
 	} else {
 		compressClientConn = client
 	}
 	defer compressClientConn.Close()
 
+	// @TOFIX 如果第一行超过了buffer长度,那就没有换行符,也就截取不到第一行,nginx 默认最大header行长度为8192byte
+	var buffer = make([]byte, 2048)
 	len, err := compressClientConn.Read(buffer)
-	if err != nil {
-		log.Panic("请求数据读取流错误: ", err)
-	}
-
-	// log.Println("解压后的流量:", string(buffer[:len]))
+	tool.HandleAndPanic(err, "请求数据读取流错误: ")
 
 	request, err := server.Parser.Parse(buffer)
-	if err != nil {
-		log.Panic("请求解析失败: ", err)
-	}
+	tool.HandleAndPanic(err, "请求解析失败: ")
 
 	webServer, err := net.DialTimeout("tcp", request.Host.String(), time.Duration(server.Deadline))
-	if err != nil {
-		log.Panic("连接Web服务器失败: ", request, err)
-	}
+	tool.HandleAndPanic(err, "连接Web服务器失败: ", request)
 	defer webServer.Close()
 	webServer.SetDeadline(time.Now().Add(server.Deadline))
 
@@ -113,13 +100,13 @@ func (server Server) HandleRequest(client net.Conn) {
 		webServer.Write(buffer[:len])
 	}
 
-	channel := make(chan bool, 2)
-	defer close(channel)
+	var wg sync.WaitGroup
 
+	wg.Add(1)
 	//客户端过来的流量写入到目标Web服务器
 	go func() {
 		now := time.Now()
-		w, err := tool.Copy(webServer, compressClientConn, server.Crypter)
+		w, err := tool.Copy(webServer, compressClientConn)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				log.Println("超时:proxy服务器 -> Web服务器", err)
@@ -128,13 +115,14 @@ func (server Server) HandleRequest(client net.Conn) {
 			}
 		}
 		log.Println("proxy服务器 -> Web服务器 执行时间:", time.Since(now), "writen:", w)
-		channel <- true
+		wg.Done()
 	}()
 
+	wg.Add(1)
 	//目标Web服务器的相应数据写入到客户端
 	go func() {
 		now := time.Now()
-		w, err := tool.Copy(compressClientConn, webServer, server.Crypter)
+		w, err := tool.Copy(compressClientConn, webServer)
 		if err != nil {
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				log.Println("超时:proxy服务器 -> client", err)
@@ -144,10 +132,10 @@ func (server Server) HandleRequest(client net.Conn) {
 
 		}
 		log.Println("proxy服务器 -> client 执行时间:", time.Since(now), "writen:", w)
-		channel <- true
+		wg.Done()
 	}()
 
-	w1, w2 := <-channel, <-channel
-	log.Println("w1", w1, "w2", w2)
+	wg.Wait()
+	log.Println("done")
 
 }

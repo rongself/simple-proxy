@@ -5,22 +5,21 @@ import (
 	"log"
 
 	"lib/compressor"
-	"lib/crypter"
 )
 
 // Copy copy
-func Copy(dst io.Writer, src io.Reader, crypter crypter.Crypter) (written int64, err error) {
-	return copyBuffer(dst, src, nil, crypter)
+func Copy(dst io.Writer, src io.Reader) (written int64, err error) {
+	return copyBuffer(dst, src, nil)
 }
 
 // CopyBuffer with buffer
-func CopyBuffer(dst io.Writer, src io.Reader, buf []byte, crypter crypter.Crypter) (written int64, err error) {
-	return copyBuffer(dst, src, buf, crypter)
+func CopyBuffer(dst io.Writer, src io.Reader, buf []byte) (written int64, err error) {
+	return copyBuffer(dst, src, buf)
 }
 
 // copyBuffer is the actual implementation of Copy and CopyBuffer.
 // if buf is nil, one is allocated.
-func copyBuffer(dst io.Writer, src io.Reader, buf []byte, crypter crypter.Crypter) (written int64, err error) {
+func copyBuffer(dst io.Writer, src io.Reader, buf []byte) (written int64, err error) {
 
 	if buf == nil {
 		buf = make([]byte, 32*1024)
@@ -33,6 +32,7 @@ func copyBuffer(dst io.Writer, src io.Reader, buf []byte, crypter crypter.Crypte
 			nw, ew := dst.Write(b)
 			if c, ok := dst.(compressor.Compressor); ok {
 				err := c.Flush()
+				// log.Println("Flush")
 				if err != nil {
 					log.Println("Flush Error:", err)
 				}

@@ -3,12 +3,9 @@ package main
 import (
 	"strconv"
 
-	"lib/compressor"
-	"lib/crypter"
 	"lib/http"
 	"lib/proxy"
 	"lib/tool"
-	"log"
 	"time"
 )
 
@@ -19,8 +16,9 @@ func main() {
 	local := tool.ClientConfig["local"].(string)
 	localPort := tool.ClientConfig["local_port"].(float64)
 	compress := tool.ClientConfig["compress"].(string)
-
-	crypter := &crypter.Bitcrypter{Secret: 0xB2}
+	// crypter := tool.ClientConfig["crypter"].(string)
+	//password := tool.ClientConfig["password"].(string)
+	// crypter := &crypter.Bitcrypter{Secret: 0xB2}
 
 	proxyHost := http.Host{
 		Domain: remote,
@@ -33,16 +31,10 @@ func main() {
 	}
 
 	client := proxy.Client{
-		ProxyHost: proxyHost,
-		Listen:    listen,
-		Crypter:   crypter,
-		Deadline:  2 * time.Hour,
-	}
-
-	if compress != "" {
-		compressor := compressor.FlateCompressor{}
-		client.Compressor = &compressor
-		log.Println("流量压缩开启")
+		ProxyHost:  proxyHost,
+		Listen:     listen,
+		Deadline:   2 * time.Hour,
+		Compressor: compress,
 	}
 
 	client.Start()
