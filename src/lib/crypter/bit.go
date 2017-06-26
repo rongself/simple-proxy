@@ -4,7 +4,8 @@ import "io"
 
 // Bitcrypter 位运算加密
 type Bitcrypter struct {
-	Secret byte
+	ReadWriter io.ReadWriteCloser
+	Secret     byte
 }
 
 // Encode 加密
@@ -20,25 +21,17 @@ func (crypter *Bitcrypter) Decode(bt *[]byte) *[]byte {
 	return crypter.Encode(bt)
 }
 
+//Write 写
 func (crypter *Bitcrypter) Write(p []byte) (n int, err error) {
-	return len(*crypter.Encode(&p)), nil
+	return crypter.ReadWriter.Write(*crypter.Encode(&p))
 }
 
+//Read 读
 func (crypter *Bitcrypter) Read(p []byte) (n int, err error) {
-
-	return len(*crypter.Encode(&p)), nil
+	return crypter.ReadWriter.Read(*crypter.Encode(&p))
 }
 
+//Close 关闭
 func (crypter *Bitcrypter) Close() error {
-
-	return nil
-}
-
-func (crypter *Bitcrypter) NewWriter(w io.Writer) (io.Writer, error) {
-
-	return crypter, nil
-}
-
-func (crypter *Bitcrypter) NewReader(r io.Reader) io.ReadCloser {
-	return crypter
+	return crypter.ReadWriter.Close()
 }

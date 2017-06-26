@@ -3,7 +3,7 @@
 ## 简介
 一个快速、轻量级的Proxy
 
-使用Golang编写的一个简单的Proxy,采用CS结构,加密使用轻便的位运算加密,速度还不错,这是我写的第一个Golang程序,如有错漏迎提Iusse指出,也欢迎提交PR
+使用Golang编写的一个简单的Proxy,采用CS结构,速度还不错,这是我写的第一个Golang程序,如有错漏迎提Iusse指出,也欢迎提交PR
 
 ## 环境
 
@@ -41,6 +41,7 @@ cd simple-proxy && ./install.sh
 {
     "server":"0.0.0.0",     //服务器监听IP,一般设为 0.0.0.0
     "server_port":8888,     //服务器监听端口
+    "compress":"flate",     //流量压缩,目前支持"flate"
     "password":"barfoo!",   //* 密码,此项暂时还没有实现
     "method": "bitcrypt",   //* 加密方式,此项暂时还没有实现,默认使用位运加密
     "timeout":60            //* 连接超时时间,此项暂时还没有实现
@@ -59,6 +60,7 @@ cd simple-proxy && ./install.sh
     "server_port":8888,             //服务器监听端口
     "local":"0.0.0.0",              //本地监听IP,设为127.0.0.1只允许本地连接,为0.0.0.0允许局域网链接
     "local_port":1070,              //本地监听端口,浏览器代理设置此端口
+    "compress":"flate",             //流量压缩,目前支持"flate"
     "password":"barfoo!",           //* 密码,此项暂时还没有实现
     "method": "bitcrypt",           //* 加密方式,此项暂时还没有实现,默认使用位运加密
     "timeout":60                    //* 连接超时时间,此项暂时还没有实现
