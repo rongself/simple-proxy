@@ -16,19 +16,18 @@ import (
 
 //Server proxy server
 type Server struct {
-	Host       http.Host
-	Parser     parser.Parser
-	Compressor string
-	Deadline   time.Duration
+	Host        http.Host
+	Parser      parser.Parser
+	Compressor  string
+	Deadline    time.Duration
+	CheckOnline time.Duration
 }
 
 // Start start proxy server
 func (server Server) Start() {
 
 	ip, err := net.ResolveTCPAddr("tcp", server.Host.String())
-	if err != nil {
-		log.Panic("IP解析失败: ", err)
-	}
+	tool.HandleAndPanic(err, "IP解析失败: ")
 
 	proxyServer, err := net.ListenTCP("tcp", ip)
 	if err != nil {
@@ -39,12 +38,15 @@ func (server Server) Start() {
 
 	for {
 		client, err := proxyServer.Accept()
-		if err != nil {
-			log.Panic("接受客户端连接失败", err)
+		tool.Handle(err, "接受客户端连接失败")
+		if clientTCP, ok := client.(*net.TCPConn); ok {
+			log.Println("接受客户端连接成功:", client.RemoteAddr().String())
+			clientTCP.SetKeepAlive(true)
+			tool.Handle(err, "SetKeepAlive failed")
+			clientTCP.SetKeepAlivePeriod(server.CheckOnline)
+			tool.Handle(err, "SetKeepAlivePeriod failed")
+			go server.HandleRequest(clientTCP)
 		}
-
-		log.Println("接受客户端连接成功:", client.RemoteAddr().String())
-		go server.HandleRequest(client)
 	}
 }
 
@@ -61,10 +63,9 @@ func (server Server) HandleRequest(client net.Conn) {
 	var compressClientConn io.ReadWriteCloser
 	if server.Compressor != "" {
 		var err error
-		var compressor = &compressor.FlateCompressor{}
-		compressor.Init(client, flate.DefaultCompression)
-		compressClientConn = compressor
+		comp, err := compressor.NewCompressor(client, flate.DefaultCompression)
 		tool.HandleAndPanic(err, "初始化压缩器失败")
+		compressClientConn = comp
 	} else {
 		compressClientConn = client
 	}
@@ -78,10 +79,14 @@ func (server Server) HandleRequest(client net.Conn) {
 	request, err := server.Parser.Parse(buffer)
 	tool.HandleAndPanic(err, "请求解析失败: ")
 
-	webServer, err := net.DialTimeout("tcp", request.Host.String(), time.Duration(server.Deadline))
+	ip, err := net.ResolveTCPAddr("tcp", request.Host.String())
+	tool.HandleAndPanic(err, "IP解析失败: ")
+	webServer, err := net.DialTCP("tcp", nil, ip)
 	tool.HandleAndPanic(err, "连接Web服务器失败: ", request)
+	webServer.SetKeepAlive(true)
+	webServer.SetKeepAlivePeriod(server.CheckOnline)
 	defer webServer.Close()
-	webServer.SetDeadline(time.Now().Add(server.Deadline))
+	// webServer.SetDeadline(time.Now().Add(server.Deadline))
 
 	log.Println("连接Web服务器成功:", request.String())
 
