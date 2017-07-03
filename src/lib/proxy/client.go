@@ -15,10 +15,11 @@ import (
 
 //Client proxy client
 type Client struct {
-	ProxyHost  http.Host
-	Listen     http.Host
-	Compressor string
-	Deadline   time.Duration
+	ProxyHost   http.Host
+	Listen      http.Host
+	Compressor  string
+	Deadline    time.Duration
+	CheckOnline time.Duration
 }
 
 // ConnProxy 连接Proxy服务器
@@ -26,10 +27,11 @@ func (client Client) ConnProxy(ip *net.TCPAddr) (io.ReadWriteCloser, error) {
 
 	proxyServer, err := net.DialTCP("tcp", nil, ip)
 	tool.HandleAndPanic(err, "连接Proxy失败")
+	proxyServer.SetKeepAlive(true)
+	proxyServer.SetKeepAlivePeriod(client.CheckOnline)
 	//压缩选项
 	if client.Compressor != "" {
-		comp := &compressor.FlateCompressor{}
-		err := comp.Init(proxyServer, flate.DefaultCompression)
+		comp, err := compressor.NewCompressor(proxyServer, flate.DefaultCompression)
 		tool.HandleAndPanic(err, "初始化压缩器失败")
 		return comp, err
 	}
@@ -39,7 +41,9 @@ func (client Client) ConnProxy(ip *net.TCPAddr) (io.ReadWriteCloser, error) {
 // Start start proxy client
 func (client Client) Start() {
 
-	localServer, err := net.Listen("tcp", client.Listen.String())
+	ip, err := net.ResolveTCPAddr("tcp", client.Listen.String())
+	tool.HandleAndPanic(err, "IP解析失败: ")
+	localServer, err := net.ListenTCP("tcp", ip)
 	tool.HandleAndPanic(err, "端口监听失败")
 
 	log.Println("客户端开始监听端口:", client.Listen.String())
@@ -51,13 +55,18 @@ func (client Client) Start() {
 			log.Panic("接受连接失败", err)
 		}
 		log.Println("浏览器连接成功:", brower.RemoteAddr().String())
-		brower.SetDeadline(time.Now().Add(client.Deadline))
-		now := time.Now()
-
-		go func() {
-			client.HandleRequest(brower)
-			log.Println("请求处理完成,处理时间:", time.Since(now))
-		}()
+		if browerTCP, ok := brower.(*net.TCPConn); ok {
+			now := time.Now()
+			go func() {
+				err := browerTCP.SetKeepAlive(true)
+				tool.Handle(err, "SetKeepAlive failed")
+				err = browerTCP.SetKeepAlivePeriod(client.CheckOnline)
+				tool.Handle(err, "SetKeepAlivePeriod failed")
+				client.HandleRequest(browerTCP)
+				log.Println("请求处理完成,处理时间:", time.Since(now))
+			}()
+		}
+		//brower.SetDeadline(time.Now().Add(client.Deadline))
 	}
 }
 

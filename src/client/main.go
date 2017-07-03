@@ -31,10 +31,11 @@ func main() {
 	}
 
 	client := proxy.Client{
-		ProxyHost:  proxyHost,
-		Listen:     listen,
-		Deadline:   2 * time.Hour,
-		Compressor: compress,
+		ProxyHost:   proxyHost,
+		Listen:      listen,
+		Deadline:    2 * time.Hour,
+		CheckOnline: 60 * time.Second,
+		Compressor:  compress,
 	}
 
 	client.Start()

@@ -25,10 +25,11 @@ func main() {
 	}
 
 	server := proxy.Server{
-		Host:       host,
-		Parser:     parser,
-		Deadline:   2 * time.Hour,
-		Compressor: compress,
+		Host:        host,
+		Parser:      parser,
+		Deadline:    2 * time.Hour,
+		CheckOnline: 60 * time.Second,
+		Compressor:  compress,
 	}
 
 	server.Start()

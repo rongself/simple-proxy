@@ -9,10 +9,10 @@ type FlateCompressor struct {
 	writer WriteFlushCloser
 }
 
-func newCompressor(rwc io.ReadWriteCloser, level int) (FlateCompressor, error) {
+func NewCompressor(rwc io.ReadWriteCloser, level int) (*FlateCompressor, error) {
 	r := flate.NewReader(rwc)
 	w, err := flate.NewWriter(rwc, level)
-	c := FlateCompressor{
+	c := &FlateCompressor{
 		reader: r,
 		writer: w,
 	}
