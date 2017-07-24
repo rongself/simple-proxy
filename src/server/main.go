@@ -17,7 +17,7 @@ func main() {
 	compress := tool.ServerConfig["compress"].(string)
 
 	// crypter := &crypter.Bitcrypter{Secret: 0xB2}
-	parser := parser.HTTPParser{}
+	parser := parser.Socks5Parser{}
 
 	host := http.Host{
 		Domain: serverHost,
@@ -26,7 +26,7 @@ func main() {
 
 	server := proxy.Server{
 		Host:        host,
-		Parser:      parser,
+		Parser:      &parser,
 		Deadline:    2 * time.Hour,
 		CheckOnline: 60 * time.Second,
 		Compressor:  compress,

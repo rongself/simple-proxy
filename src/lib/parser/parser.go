@@ -1,8 +1,11 @@
 package parser
 
-import "lib/http"
+import (
+	"io"
+	"net"
+)
 
 // Parser 解析器接口
 type Parser interface {
-	Parse(httpSteam []byte) (http.Request, error)
+	Parse(httpSteam io.ReadWriteCloser) (*net.TCPConn, error)
 }

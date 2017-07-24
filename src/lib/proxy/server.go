@@ -51,7 +51,7 @@ func (server Server) Start() {
 }
 
 // HandleRequest handle
-func (server Server) HandleRequest(client net.Conn) {
+func (server Server) HandleRequest(client *net.TCPConn) {
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -71,42 +71,11 @@ func (server Server) HandleRequest(client net.Conn) {
 	}
 	defer compressClientConn.Close()
 
-	// @TOFIX 如果第一行超过了buffer长度,那就没有换行符,也就截取不到第一行,nginx 默认最大header行长度为8192byte
-	var buffer = make([]byte, 2048)
-	len, err := compressClientConn.Read(buffer)
-	tool.HandleAndPanic(err, "请求数据读取流错误: ")
-
-	request, err := server.Parser.Parse(buffer)
+	webServer, err := server.Parser.Parse(compressClientConn)
 	tool.HandleAndPanic(err, "请求解析失败: ")
-
-	ip, err := net.ResolveTCPAddr("tcp", request.Host.String())
-	tool.HandleAndPanic(err, "IP解析失败: ")
-	webServer, err := net.DialTCP("tcp", nil, ip)
-	tool.HandleAndPanic(err, "连接Web服务器失败: ", request)
-	webServer.SetKeepAlive(true)
-	webServer.SetKeepAlivePeriod(server.CheckOnline)
 	defer webServer.Close()
-	// webServer.SetDeadline(time.Now().Add(server.Deadline))
-
-	log.Println("连接Web服务器成功:", request.String())
-
-	if request.Method == http.CONNECT {
-		now := time.Now()
-		// // 当请求是HTTPS请求,浏览器会发送一个CONNECT请求告诉代理服务器请求的域名和端口
-		b := []byte("HTTP/1.1 200 Connection established\r\n\r\n")
-		compressClientConn.Write(b)
-		if compressClientConn, ok := compressClientConn.(compressor.Compressor); ok {
-			compressClientConn.Flush()
-		}
-		log.Println("HTTPS 200 执行时间:", time.Since(now))
-
-	} else {
-		// 当请求是HTTP请求,直接传给web服务器(因为这是第一次Read读取的数据,不能漏了)
-		webServer.Write(buffer[:len])
-	}
 
 	var wg sync.WaitGroup
-
 	wg.Add(1)
 	//客户端过来的流量写入到目标Web服务器
 	go func() {
@@ -134,7 +103,6 @@ func (server Server) HandleRequest(client net.Conn) {
 			} else {
 				log.Println("错误:proxy服务器 -> client", w, err)
 			}
-
 		}
 		log.Println("proxy服务器 -> client 执行时间:", time.Since(now), "writen:", w)
 		wg.Done()

@@ -1,68 +1,71 @@
 package main
 
 import (
-	"compress/flate"
 	"fmt"
 	"io"
+	"log"
 	"net"
-	"time"
+	"sync"
 )
 
-// func main() {
+var conns []*net.Conn
 
-// 	host, _ := net.Listen("tcp", "127.0.0.1:8900")
-// 	for {
-// 		conn, err := host.Accept()
-// 		if err != nil {
-// 			log.Println("接收连接时出错", err)
-// 		}
-// 		fmt.Println("接收到一个连接")
-
-// 		go handle(conn)
-
-// 	}
-// }
 func main() {
-	// 创建一个channel用以同步goroutine
-	done := make(chan int, 2)
-
-	// 在goroutine中执行输出操作
-	go func() {
-
-		// 告诉main函数执行完毕.
-		// 这个channel在goroutine中是可见的
-		// 因为它是在相同的地址空间执行的.
-		for c := 0; c < 3; c++ {
-			println("goroutine message")
-			done <- c
+	host, _ := net.Listen("tcp", "127.0.0.1:8900")
+	for {
+		conn, err := host.Accept()
+		if err != nil {
+			log.Println("接收连接时出错", err)
 		}
+		fmt.Println("接收到一个连接来自", conn.RemoteAddr())
+		conns = append(conns, &conn)
+		go handle(&conn)
 
-	}()
-
-	time.Sleep(time.Second * 3)
-	println("main function message")
-	// 等待goroutine结束
-	println(<-done, <-done, <-done)
-	println("done!!")
+	}
 }
 
-func handle(conn net.Conn) {
-	buffer := make([]byte, 1024)
-	fmt.Println("等待发送数据")
-	c := flate.NewReader(conn)
+func handle(conn *net.Conn) {
+	buffer := make([]byte, 512)
+	fmt.Println("等待发送数据", conns)
+	broadcastString(conn, fmt.Sprintf("%v上线了\n", (*conn).RemoteAddr()))
+	// c := flate.NewReader(conn)
 	for {
-		n, err := c.Read(buffer)
+		n, err := (*conn).Read(buffer)
 		if err != nil {
 			if err == io.EOF {
-				fmt.Println("break:", err)
+				fmt.Println("IO EOF:", err, buffer[:n])
+				broadcastString(conn, fmt.Sprintf("%v下线了\n", (*conn).RemoteAddr()))
 				break
 			}
 			fmt.Println("错误", err)
 			break
 		}
 
-		fmt.Println(string(buffer[:n]), buffer[:n], "--", n, len(buffer), cap(buffer))
+		broadcast(conn, buffer[:n])
 
 	}
-	// c.Close()}
+	defer func() {
+		(*conn).Close()
+		fmt.Println("连接接关闭", (*conn).RemoteAddr())
+	}()
+}
+
+func broadcast(sender *net.Conn, messge []byte) {
+	var wg sync.WaitGroup
+	for i := 0; i < len(conns); i++ {
+		if conns[i] != sender {
+			wg.Add(1)
+			go func(index int) {
+				connt := *(conns[index])
+				connt.Write(messge)
+				wg.Done()
+			}(i)
+
+		}
+	}
+	wg.Wait()
+}
+
+func broadcastString(sender *net.Conn, messge string) {
+	broadcast(sender, []byte(messge))
 }
