@@ -71,7 +71,7 @@ func (client Client) Start() {
 }
 
 // HandleRequest handle
-func (client Client) HandleRequest(brower net.Conn) {
+func (client Client) HandleRequest(brower *net.TCPConn) {
 
 	defer func() {
 		if err := recover(); err != nil {
